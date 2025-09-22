@@ -1,0 +1,17 @@
+blinker
+click
+Flask
+itsdangerous
+Jinja2
+joblib
+MarkupSafe
+numpy
+pandas
+python-dateutil
+pytz
+scikit-learn==1.6.1
+scipy
+six
+threadpoolctl
+tzdata
+Werkzeug
