@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+from flask_cors import cross_origin, CORS
 from google import genai
 import joblib
 import pandas as pd
@@ -208,6 +208,7 @@ def get_crop_type(crop_cotton: bool, crop_maize: bool, crop_rice: bool) -> str:
 #
 
 
+@cross_origin
 @app.route("/predict", methods=["POST"])
 def predict_single():
     """
@@ -477,6 +478,7 @@ def parse_ai_recommendations(ai_response: str) -> Dict[str, Any]:
         return {"raw_response": ai_response}
 
 
+@cross_origin
 @app.route("/recommendations", methods=["POST"])
 def get_farming_recommendations():
     """
