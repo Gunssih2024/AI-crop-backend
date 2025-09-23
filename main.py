@@ -12,7 +12,7 @@ import os
 
 load_dotenv()
 app = Flask(__name__)
-CORS(app, origins="http://localhost:3000")
+CORS(app)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
