@@ -1,4 +1,6 @@
 blinker
+dotenv
+google-genai
 click
 Flask
 itsdangerous
