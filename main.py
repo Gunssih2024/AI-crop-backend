@@ -126,17 +126,102 @@ def get_crop_type(crop_cotton: bool, crop_maize: bool, crop_rice: bool) -> str:
         return "chickpea"  # Default when all three are False
 
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    """
-    Predict using the trained model
+# @app.route("/predict", methods=["POST"])
+# def predict():
+#    """
+#    Predict using the trained model
+#
+#    Expected JSON format:
+#    {
+#        "data": [
+#            [6.75, 3.0, 6.75, 28, 65, 6.0, true, false, false],
+#            [22.00975, 10.56468, 19.36858, 25, 80, 6.5, false, false, true]
+#        ]
+#    }
+#    """
+#    try:
+#        # Check if models are loaded
+#        if loaded_preprocessor is None or loaded_model is None:
+#            return jsonify(
+#                {
+#                    "error": "Models not loaded. Please check if model files exist.",
+#                    "success": False,
+#                }
+#            ), 500
+#
+#        # Get JSON data from request
+#        if not request.is_json:
+#            return jsonify({"error": "Request must be JSON", "success": False}), 400
+#
+#        json_data = request.get_json()
+#
+#        # Validate JSON structure
+#        if "data" not in json_data:
+#            return jsonify(
+#                {"error": 'JSON must contain "data" field', "success": False}
+#            ), 400
+#
+#        input_data = json_data["data"]
+#
+#        # Validate input data
+#        is_valid, validation_message = validate_input_data(input_data)
+#        if not is_valid:
+#            return jsonify(
+#                {"error": f"Invalid input data: {validation_message}", "success": False}
+#            ), 400
+#
+#        # Create DataFrame
+#        df = pd.DataFrame(input_data, columns=COLUMNS)
+#        logger.info(f"Processing {len(df)} rows of data")
+#
+#        # Transform data using preprocessor
+#        transformed_data = loaded_preprocessor.transform(df)
+#        logger.info(f"Data transformed successfully, shape: {transformed_data.shape}")
+#
+#        # Make predictions
+#        predictions = loaded_model.predict(transformed_data)
+#        logger.info(f"Predictions made successfully")
+#
+#        # Convert numpy types to Python types for JSON serialization
+#        predictions_list = [
+#            float(pred)
+#            if isinstance(pred, np.floating)
+#            else int(pred)
+#            if isinstance(pred, np.integer)
+#            else pred
+#            for pred in predictions
+#        ]
+#
+#        return jsonify(
+#            {
+#                "predictions": predictions_list,
+#                "num_predictions": len(predictions_list),
+#                "success": True,
+#            }
+#        )
+#
+#    except Exception as e:
+#        logger.error(f"Error during prediction: {str(e)}")
+#        return jsonify({"error": f"Prediction failed: {str(e)}", "success": False}), 500
+#
 
-    Expected JSON format:
+
+@app.route("/predict", methods=["POST"])
+def predict_single():
+    """
+    Predict for a single data point
+
+    Expected JSON format (frontend):
     {
-        "data": [
-            [6.75, 3.0, 6.75, 28, 65, 6.0, true, false, false],
-            [22.00975, 10.56468, 19.36858, 25, 80, 6.5, false, false, true]
-        ]
+        "nReq": 6.75,
+        "pReq": 3.0,
+        "kReq": 6.75,
+        "temperature": 28,
+        "humidity": 65,
+        "pH": 6.0,
+        "cropCotton": true,
+        "cropMaize": false,
+        "cropRice": false
     }
     """
     try:
@@ -149,59 +234,74 @@ def predict():
                 }
             ), 500
 
-        # Get JSON data from request
+        # Ensure request is JSON
         if not request.is_json:
             return jsonify({"error": "Request must be JSON", "success": False}), 400
 
         json_data = request.get_json()
 
-        # Validate JSON structure
-        if "data" not in json_data:
+        # Map frontend keys to backend model column names
+        key_mapping = {
+            "nReq": "N_req_kg_per_ha",
+            "pReq": "P_req_kg_per_ha",
+            "kReq": "K_req_kg_per_ha",
+            "temperature": "Temperature_C",
+            "humidity": "Humidity_%",
+            "pH": "pH",
+            "cropCotton": "Crop_cotton",
+            "cropMaize": "Crop_maize",
+            "cropRice": "Crop_rice",
+        }
+
+        # Translate frontend input to backend column names
+        translated_data = {
+            backend_key: json_data[frontend_key]
+            for frontend_key, backend_key in key_mapping.items()
+            if frontend_key in json_data
+        }
+
+        # Validate that all required columns are present
+        missing_columns = [col for col in COLUMNS if col not in translated_data]
+        if missing_columns:
             return jsonify(
-                {"error": 'JSON must contain "data" field', "success": False}
+                {
+                    "error": f"Missing required fields: {missing_columns}",
+                    "success": False,
+                }
             ), 400
 
-        input_data = json_data["data"]
+        # Create single row data
+        single_row = [translated_data[col] for col in COLUMNS]
 
-        # Validate input data
-        is_valid, validation_message = validate_input_data(input_data)
+        # Validate input
+        is_valid, validation_message = validate_input_data([single_row])
         if not is_valid:
             return jsonify(
                 {"error": f"Invalid input data: {validation_message}", "success": False}
             ), 400
 
         # Create DataFrame
-        df = pd.DataFrame(input_data, columns=COLUMNS)
-        logger.info(f"Processing {len(df)} rows of data")
+        df = pd.DataFrame([single_row], columns=COLUMNS)
 
-        # Transform data using preprocessor
+        # Transform and predict
         transformed_data = loaded_preprocessor.transform(df)
-        logger.info(f"Data transformed successfully, shape: {transformed_data.shape}")
+        prediction = loaded_model.predict(transformed_data)[0]
 
-        # Make predictions
-        predictions = loaded_model.predict(transformed_data)
-        logger.info(f"Predictions made successfully")
-
-        # Convert numpy types to Python types for JSON serialization
-        predictions_list = [
-            float(pred)
-            if isinstance(pred, np.floating)
-            else int(pred)
-            if isinstance(pred, np.integer)
-            else pred
-            for pred in predictions
-        ]
+        # Convert numpy type to Python type
+        prediction_value = (
+            float(prediction)
+            if isinstance(prediction, np.floating)
+            else int(prediction)
+            if isinstance(prediction, np.integer)
+            else prediction
+        )
 
         return jsonify(
-            {
-                "predictions": predictions_list,
-                "num_predictions": len(predictions_list),
-                "success": True,
-            }
+            {"prediction": prediction_value, "input_data": json_data, "success": True}
         )
 
     except Exception as e:
-        logger.error(f"Error during prediction: {str(e)}")
+        logger.error(f"Error during single prediction: {str(e)}")
         return jsonify({"error": f"Prediction failed: {str(e)}", "success": False}), 500
 
 
