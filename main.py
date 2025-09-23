@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from google import genai
 import joblib
 import pandas as pd
@@ -11,6 +12,7 @@ import os
 
 load_dotenv()
 app = Flask(__name__)
+CORS(app, origins="http://localhost:3000")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
