@@ -1,6 +1,7 @@
 blinker
 dotenv
 google-genai
+flask_cors
 click
 Flask
 itsdangerous
