@@ -544,7 +544,7 @@ def get_farming_recommendations():
             ), 500
 
         # Parse the structured recommendations
-        parsed_recommendations = parse_ai_recommendations(raw_recommendations)
+        parsed_recommendations = parse_ai_recommendations(raw_recommendations or "")
 
         # Get ML prediction if available
         predicted_yield = None
